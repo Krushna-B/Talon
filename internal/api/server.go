@@ -1,7 +1,7 @@
 package api
 
 import (
-	"fmt"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 
@@ -12,8 +12,12 @@ type Server struct {
 	cfg config.Config
 	log *slog.Logger //Only 1 logger resource shared via pointer
 }
+type HealthResponse struct {
+	Status string `json:"status"`
+	Mode   string `json:"mode"`
+}
 
-func New(cfg config.Config, log *slog.Logger) *Server {
+func NewServer(cfg config.Config, log *slog.Logger) *Server {
 	server := Server{
 		cfg: cfg,
 		log: log,
@@ -28,5 +32,9 @@ func (s *Server) Routes() *http.ServeMux {
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "ok")
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(HealthResponse{
+		Status: "ok",
+		Mode:   s.cfg.Mode,
+	})
 }

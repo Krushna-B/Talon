@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/Krushna-B/talon/internal/api"
 	"github.com/Krushna-B/talon/internal/config"
@@ -25,6 +29,33 @@ func run() error {
 
 	slog.Info("starting talon", "mode", cfg.Mode, "addr", cfg.HTTPAddr)
 
-	srv := api.New(cfg, slog.Default())
-	return http.ListenAndServe(cfg.HTTPAddr, srv.Routes())
+	srv := api.NewServer(cfg, slog.Default())
+
+	httpServer := &http.Server{
+		Addr:         cfg.HTTPAddr,
+		Handler:      srv.Routes(),
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- httpServer.ListenAndServe()
+	}()
+
+	select {
+	case err := <-errCh:
+		return fmt.Errorf("server: %w", err)
+	case <-ctx.Done():
+		slog.Info("shutting down server")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		err := httpServer.Shutdown(shutdownCtx)
+		if err != nil {
+			return fmt.Errorf("server: %w", err)
+		}
+	}
+	return nil
 }
