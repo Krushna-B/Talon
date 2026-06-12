@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 
+	"github.com/Krushna-B/talon/internal/api"
 	"github.com/Krushna-B/talon/internal/config"
 )
 
@@ -22,5 +24,7 @@ func run() error {
 	}
 
 	slog.Info("starting talon", "mode", cfg.Mode, "addr", cfg.HTTPAddr)
-	return nil
+
+	srv := api.New(cfg, slog.Default())
+	return http.ListenAndServe(cfg.HTTPAddr, srv.Routes())
 }
