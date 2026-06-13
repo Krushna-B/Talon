@@ -1,0 +1,23 @@
+name: talon
+
+
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: trading_user
+      POSTGRES_DB: trading
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql     
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trading_user -d trading"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+
+volumes:
+  pgdata:
