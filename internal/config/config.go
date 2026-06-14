@@ -14,10 +14,11 @@ const (
 
 // Config holds the runtime settings shared by all Talon workers.
 type Config struct {
-	DatabaseURL string
-	Mode        string
-	HTTPAddr    string
-	AdminToken  string
+	DatabaseURL   string
+	Mode          string
+	HTTPAddr      string
+	AdminToken    string
+	KalshiBaseURL string
 }
 
 // Load reads configuration from environment variables.
@@ -27,10 +28,11 @@ type Config struct {
 //	HTTPAddr default is :8080
 func Load() (Config, error) {
 	cfg := Config{
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		Mode:        getenv("MODE", ModePaper),
-		HTTPAddr:    getenv("HTTP_ADDR", ":8080"),
-		AdminToken:  os.Getenv("ADMIN_TOKEN"),
+		DatabaseURL:   os.Getenv("DATABASE_URL"),
+		Mode:          getenv("MODE", ModePaper),
+		HTTPAddr:      getenv("HTTP_ADDR", ":8080"),
+		AdminToken:    os.Getenv("ADMIN_TOKEN"),
+		KalshiBaseURL: getenv("KALSHI_BASE_URL", "https://external-api.demo.kalshi.co/trade-api/v2"),
 	}
 
 	if cfg.DatabaseURL == "" {
