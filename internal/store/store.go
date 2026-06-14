@@ -46,3 +46,34 @@ func (s *Store) GetSystemState(ctx context.Context, key string) (string, error) 
 	}
 	return value, nil
 }
+
+// SetSystemState sets the values of specifc system_state row by key.
+func (s *Store) SetSystemState(ctx context.Context, key string, val string) error {
+	tag, err := s.pool.Exec(ctx, "UPDATE system_state SET value = $1, updated_at = now() WHERE key = $2", val, key)
+	if err != nil {
+		return fmt.Errorf("unable to update %q state: %w", key, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("unknown system_state key %q", key)
+	}
+
+	return nil
+}
+
+// ListSystemState returns the values of all system_state row by key.
+func (s *Store) ListSystemState(ctx context.Context) (map[string]string, error) {
+	rows, err := s.pool.Query(ctx, "SELECT key, value FROM system_state")
+	if err != nil {
+		return nil, fmt.Errorf("listing system state: %w", err)
+	}
+	defer rows.Close()
+	out := make(map[string]string)
+	for rows.Next() {
+		var k, v string
+		if err := rows.Scan(&k, &v); err != nil {
+			return nil, fmt.Errorf("scanning system state: %w", err)
+		}
+		out[k] = v
+	}
+	return out, rows.Err()
+}
