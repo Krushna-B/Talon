@@ -32,6 +32,11 @@ func (s *Store) Close() {
 	s.pool.Close()
 }
 
+// Ping verifies the database is reachable.
+func (s *Store) Ping(ctx context.Context) error {
+	return s.pool.Ping(ctx)
+}
+
 // GetSystemState returns the value of a system_state row by key.
 func (s *Store) GetSystemState(ctx context.Context, key string) (string, error) {
 	var value string

@@ -12,6 +12,7 @@ import (
 
 	"github.com/Krushna-B/talon/internal/api"
 	"github.com/Krushna-B/talon/internal/config"
+	"github.com/Krushna-B/talon/internal/store"
 )
 
 func main() {
@@ -27,9 +28,18 @@ func run() error {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	slog.Info("starting talon", "mode", cfg.Mode, "addr", cfg.HTTPAddr)
 
-	srv := api.NewServer(cfg, slog.Default())
+	st, err := store.New(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return fmt.Errorf("connecting to store: %w", err)
+	}
+	defer st.Close()
+
+	srv := api.NewServer(cfg, slog.Default(), st)
 
 	httpServer := &http.Server{
 		Addr:         cfg.HTTPAddr,
@@ -37,8 +47,6 @@ func run() error {
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	errCh := make(chan error, 1)
 	go func() {
