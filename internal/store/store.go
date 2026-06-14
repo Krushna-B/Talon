@@ -2,10 +2,14 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// ErrUnknownKey is returned when a system_state key does not exist.
+var ErrUnknownKey = errors.New("unknown system_state key")
 
 // Store is the application's gateway to the database.
 type Store struct {
@@ -54,7 +58,7 @@ func (s *Store) SetSystemState(ctx context.Context, key string, val string) erro
 		return fmt.Errorf("unable to update %q state: %w", key, err)
 	}
 	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("unknown system_state key %q", key)
+		return fmt.Errorf("setting system state %q: %w", key, ErrUnknownKey)
 	}
 
 	return nil
