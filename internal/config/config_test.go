@@ -15,13 +15,22 @@ func TestLoad(t *testing.T) {
 	}{
 		{
 			name:    "missing DATABASE_URL",
-			env:     map[string]string{"DATABASE_URL": ""},
+			env:     map[string]string{"DATABASE_URL": "", "ADMIN_TOKEN": "secret"},
+			wantErr: true,
+		},
+		{
+			name: "missing ADMIN_TOKEN",
+			env: map[string]string{
+				"DATABASE_URL": "postgres://test",
+				"ADMIN_TOKEN":  "",
+			},
 			wantErr: true,
 		},
 		{
 			name: "invalid mode",
 			env: map[string]string{
 				"DATABASE_URL": "postgres://test",
+				"ADMIN_TOKEN":  "secret",
 				"MODE":         "banana",
 			},
 			wantErr: true,
@@ -30,6 +39,7 @@ func TestLoad(t *testing.T) {
 			name: "defaults applied",
 			env: map[string]string{
 				"DATABASE_URL": "postgres://test",
+				"ADMIN_TOKEN":  "secret",
 				"MODE":         "",
 				"HTTP_ADDR":    "",
 			},
@@ -37,12 +47,14 @@ func TestLoad(t *testing.T) {
 				DatabaseURL: "postgres://test",
 				Mode:        config.ModePaper,
 				HTTPAddr:    ":8080",
+				AdminToken:  "secret",
 			},
 		},
 		{
 			name: "explicit values win",
 			env: map[string]string{
 				"DATABASE_URL": "postgres://test",
+				"ADMIN_TOKEN":  "secret",
 				"MODE":         "live",
 				"HTTP_ADDR":    ":9999",
 			},
@@ -50,6 +62,7 @@ func TestLoad(t *testing.T) {
 				DatabaseURL: "postgres://test",
 				Mode:        config.ModeLive,
 				HTTPAddr:    ":9999",
+				AdminToken:  "secret",
 			},
 		},
 	}

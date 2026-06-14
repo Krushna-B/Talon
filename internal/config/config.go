@@ -17,6 +17,7 @@ type Config struct {
 	DatabaseURL string
 	Mode        string
 	HTTPAddr    string
+	AdminToken  string
 }
 
 // Load reads configuration from environment variables.
@@ -29,10 +30,14 @@ func Load() (Config, error) {
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		Mode:        getenv("MODE", ModePaper),
 		HTTPAddr:    getenv("HTTP_ADDR", ":8080"),
+		AdminToken:  os.Getenv("ADMIN_TOKEN"),
 	}
 
 	if cfg.DatabaseURL == "" {
 		return Config{}, errors.New("DATABASE_URL not set")
+	}
+	if cfg.AdminToken == "" {
+		return Config{}, errors.New("ADMIN_TOKEN not set")
 	}
 	if cfg.Mode != ModePaper && cfg.Mode != ModeLive {
 		return Config{}, fmt.Errorf("invalid MODE %q: must be %q or %q", cfg.Mode, ModePaper, ModeLive)

@@ -32,10 +32,13 @@ func NewServer(cfg config.Config, log *slog.Logger, store *store.Store) *Server 
 
 // HTTP Server mux
 func (s *Server) Routes() *http.ServeMux {
+	adminMux := http.NewServeMux()
+	adminMux.HandleFunc("GET /admin/state", s.handleGetState)
+	adminMux.HandleFunc("POST /admin/state", s.handleSetState)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.handleHealth)
-	mux.HandleFunc("GET /admin/state", s.handleGetState)
-	mux.HandleFunc("POST /admin/state", s.handleSetState)
+	mux.Handle("/admin/", s.requireAuth(adminMux))
 	return mux
 }
 
