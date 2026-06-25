@@ -19,6 +19,10 @@ type Config struct {
 	HTTPAddr      string
 	AdminToken    string
 	KalshiBaseURL string
+
+	KalshiWSURL   string
+	KalshiKeyID   string
+	KalshiKeyPath string
 }
 
 // Load reads configuration from environment variables.
@@ -33,6 +37,9 @@ func Load() (Config, error) {
 		HTTPAddr:      getenv("HTTP_ADDR", ":8080"),
 		AdminToken:    os.Getenv("ADMIN_TOKEN"),
 		KalshiBaseURL: getenv("KALSHI_BASE_URL", "https://external-api.demo.kalshi.co/trade-api/v2"),
+		KalshiWSURL:   getenv("KALSHI_WS_URL", "wss://external-api-ws.demo.kalshi.co/trade-api/ws/v2"),
+		KalshiKeyID:   os.Getenv("KALSHI_KEY_ID"),
+		KalshiKeyPath: getenv("KALSHI_KEY_PATH", "private.pem"),
 	}
 
 	if cfg.DatabaseURL == "" {

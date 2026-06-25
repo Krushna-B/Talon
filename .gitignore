@@ -1,4 +1,14 @@
-.env
+#Misc
 .DS_Store
 /bin/
+
+#Docs
 Docs
+
+#Claude
+.claude
+
+#Secrets
+.env
+*.pem
+

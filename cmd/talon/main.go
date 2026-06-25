@@ -12,7 +12,9 @@ import (
 
 	"github.com/Krushna-B/talon/internal/api"
 	"github.com/Krushna-B/talon/internal/config"
+	"github.com/Krushna-B/talon/internal/kalshi"
 	"github.com/Krushna-B/talon/internal/store"
+	"github.com/Krushna-B/talon/internal/strategy"
 )
 
 func main() {
@@ -39,6 +41,13 @@ func run() error {
 	}
 	defer st.Close()
 
+	//Build Kalshi event
+	signer, err := kalshi.NewSigner(cfg.KalshiKeyID, cfg.KalshiKeyPath)
+	if err != nil {
+		return fmt.Errorf("building kalshi signer: %w", err)
+	}
+	kc := kalshi.New(cfg.KalshiBaseURL, slog.Default())
+
 	srv := api.NewServer(cfg, slog.Default(), st)
 
 	httpServer := &http.Server{
@@ -48,9 +57,30 @@ func run() error {
 		WriteTimeout: 10 * time.Second,
 	}
 
-	errCh := make(chan error, 1)
+	//GO Routines
+	errCh := make(chan error, 2)
 	go func() {
 		errCh <- httpServer.ListenAndServe()
+	}()
+	ticks := make(chan kalshi.MarketTick, 1024)
+
+	strat := strategy.CheapYes{MaxAsk: 0.30}
+
+	// consumer: run each tick through the strategy, log any intents
+	go func() {
+		for tick := range ticks {
+			for _, intent := range strat.OnTick(tick) {
+				slog.Info("intent",
+					"ticker", intent.Ticker, "side", intent.Side,
+					"action", intent.Action, "count", intent.Count,
+					"limit", intent.LimitPrice)
+			}
+		}
+	}()
+
+	go func() {
+		tickers := []string{}
+		errCh <- kc.StreamTickers(ctx, cfg.KalshiWSURL, signer, tickers, ticks)
 	}()
 
 	select {
