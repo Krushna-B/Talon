@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -13,6 +15,7 @@ import (
 	"github.com/Krushna-B/talon/internal/api"
 	"github.com/Krushna-B/talon/internal/config"
 	"github.com/Krushna-B/talon/internal/kalshi"
+	"github.com/Krushna-B/talon/internal/paper"
 	"github.com/Krushna-B/talon/internal/store"
 	"github.com/Krushna-B/talon/internal/strategy"
 )
@@ -22,6 +25,14 @@ func main() {
 		fmt.Fprintln(os.Stderr, "talon:", err)
 		os.Exit(1)
 	}
+}
+
+// newOrderID returns a random client-generated order id, used both as our
+// primary key and the venue's idempotency token.
+func newOrderID() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 func run() error {
@@ -65,21 +76,50 @@ func run() error {
 	ticks := make(chan kalshi.MarketTick, 1024)
 
 	strat := strategy.CheapYes{MaxAsk: 0.30}
+	broker := paper.New()
 
-	// consumer: run each tick through the strategy, log any intents
+	// consumer: tick → strategy → intent → write-ahead → broker → mark resting
 	go func() {
 		for tick := range ticks {
 			for _, intent := range strat.OnTick(tick) {
-				slog.Info("intent",
-					"ticker", intent.Ticker, "side", intent.Side,
-					"action", intent.Action, "count", intent.Count,
-					"limit", intent.LimitPrice)
+				orderID := newOrderID()
+
+				if err := st.InsertPending(ctx, store.Order{
+					OrderID: orderID, Ticker: intent.Ticker,
+					Side: string(intent.Side), Action: string(intent.Action),
+					Count: intent.Count, LimitPrice: intent.LimitPrice,
+				}); err != nil {
+					slog.Error("persisting pending order", "err", err)
+					continue
+				}
+
+				res, err := broker.PlaceOrder(ctx, intent, orderID)
+				if err != nil {
+					slog.Error("placing order", "err", err) // row stays 'pending'
+					continue
+				}
+
+				if err := st.MarkResting(ctx, orderID, res.VenueOrderID); err != nil {
+					slog.Error("marking order resting", "err", err)
+					continue
+				}
+				slog.Info("order placed",
+					"order_id", orderID, "venue_id", res.VenueOrderID,
+					"status", res.Status, "ticker", intent.Ticker)
 			}
 		}
 	}()
 
 	go func() {
-		tickers := []string{}
+		// Small throwaway list of currently-active cheap markets for testing
+		// the order path. Swap freely; widen once the risk gate exists.
+		tickers := []string{
+			"KXBTCD-26JUN2617-T63999.99",
+			"KXWCSCORE-26JUN25TURUSA-TUR0USA4",
+			"KXMLBSPREAD-26JUN251545ATHSF-ATH4",
+			"KXSPXFOMC-26JUL29-T2.75",
+			"KXHIGHTSEA-26JUN25-T73",
+		}
 		errCh <- kc.StreamTickers(ctx, cfg.KalshiWSURL, signer, tickers, ticks)
 	}()
 

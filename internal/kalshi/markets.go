@@ -29,7 +29,7 @@ type marketResponse struct {
 }
 
 func (c *Client) GetMarkets(ctx context.Context, status string, limit int) ([]Market, string, error) {
-	// Build the URL.
+	// Build the URL
 	u, err := url.Parse(c.baseURL + "/markets")
 	if err != nil {
 		return nil, "", fmt.Errorf("parsing kalshi url: %w", err)

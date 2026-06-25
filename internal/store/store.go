@@ -64,6 +64,42 @@ func (s *Store) SetSystemState(ctx context.Context, key string, val string) erro
 	return nil
 }
 
+// Order is the data needed to write-ahead a new order row. Plain fields so
+// store stays decoupled from the kalshi package.
+type Order struct {
+	OrderID    string
+	Ticker     string
+	Side       string
+	Action     string
+	Count      int
+	LimitPrice float64
+}
+
+// InsertPending records an order as 'pending' BEFORE the venue call, so a
+// crash mid-submit leaves a recoverable trace (write-ahead).
+func (s *Store) InsertPending(ctx context.Context, o Order) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO orders (order_id, ticker, side, action, count, limit_price, status)
+		 VALUES ($1, $2, $3, $4, $5, $6, 'pending')`,
+		o.OrderID, o.Ticker, o.Side, o.Action, o.Count, o.LimitPrice)
+	if err != nil {
+		return fmt.Errorf("inserting pending order: %w", err)
+	}
+	return nil
+}
+
+// MarkResting fills in the venue's id and flips status to 'resting' once
+// the venue acks the order.
+func (s *Store) MarkResting(ctx context.Context, orderID, venueOrderID string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE orders SET venue_order_id = $1, status = 'resting', updated_at = now() WHERE order_id = $2`,
+		venueOrderID, orderID)
+	if err != nil {
+		return fmt.Errorf("marking order resting: %w", err)
+	}
+	return nil
+}
+
 // ListSystemState returns the values of all system_state row by key.
 func (s *Store) ListSystemState(ctx context.Context) (map[string]string, error) {
 	rows, err := s.pool.Query(ctx, "SELECT key, value FROM system_state")
